@@ -7,7 +7,7 @@
         {"name": "other", "text":"其它"}
     ],
     "articles":[
-        {"title": "Oozie调用sqoop导数据出现NoClassDefFoundError问题", "file": "2013-03-17", "cate":"tech"}
+        {"title": "Oozie", "file": "2013-03-17-blog_oozie-sqoop-notdeffound", "cate":"tech"}
         
         ]
 }
