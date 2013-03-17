@@ -1,0 +1,33 @@
+###异常
+		
+		Exception in thread "main" java.lang.NoClassDefFoundError: Could not initialize class org.apache.log4j.LogManager
+		at org.apache.log4j.Logger.getLogger(Logger.java:105)
+		at org.apache.sqoop.util.LoggingUtils.setDebugLevel(LoggingUtils.java:69)
+		at org.apache.sqoop.tool.BaseSqoopTool.applyCommonOptions(BaseSqoopTool.java:633)
+		at org.apache.sqoop.tool.ImportTool.applyOptions(ImportTool.java:713)
+		at org.apache.sqoop.tool.SqoopTool.parseArguments(SqoopTool.java:433)
+		at org.apache.sqoop.Sqoop.run(Sqoop.java:129)
+		at org.apache.hadoop.util.ToolRunner.run(ToolRunner.java:65)
+		at org.apache.sqoop.Sqoop.runSqoop(Sqoop.java:181)
+		at org.apache.sqoop.Sqoop.runTool(Sqoop.java:220)
+		at org.apache.sqoop.Sqoop.runTool(Sqoop.java:229)
+		at org.apache.sqoop.Sqoop.main(Sqoop.java:238)
+		at com.cloudera.sqoop.Sqoop.main(Sqoop.java:57)
+		Failing Oozie Launcher, Main class [org.apache.oozie.action.hadoop.ShellMain], exit code [1]
+
+
+###问题定位
+- 单独执行Sqoop脚本没有问题，但通过oozie调用出现上述异常。
+- 检查classpath，都有log4j的jar包。
+- 分析单独执行和用oozie调用的脚本差别。
+- 单独执行时，有个关键参数 -Dhadoop.root.logger=INFO,console
+- 用oozie调用度时，生成的脚本 -Dhadoop.root.logger=INFO,TLA,检查log4j.properties，也有TLA的配置。
+- 调试后发现是关键的参数-Dhadoop.tasklog.taskid缺少，这个与HADOOP_CLIENT_OPTS有关
+
+
+###问题解决
+- 修改hadoop-env.sh
+- 增加HADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"来解决。
+
+###参考
+- 参考[https://issues.apache.org/jira/browse/MAPREDUCE-3112](https://issues.apache.org/jira/browse/MAPREDUCE-3112)
