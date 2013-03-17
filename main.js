@@ -1,4 +1,4 @@
-$(function(){
+﻿$(function(){
     $('body').ajaxError(function(event, request, settings, err){
         console.log(event);
     });

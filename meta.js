@@ -1,4 +1,4 @@
-{
+﻿{
     "site_name": "杨军的博客",
     "copyright": "YangJun 2013",
     "cates": [

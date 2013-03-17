@@ -1,4 +1,4 @@
-###Òì³£
+ï»¿###å¼‚å¸¸
 		
 		Exception in thread "main" java.lang.NoClassDefFoundError: Could not initialize class org.apache.log4j.LogManager
 		at org.apache.log4j.Logger.getLogger(Logger.java:105)
@@ -16,18 +16,18 @@
 		Failing Oozie Launcher, Main class [org.apache.oozie.action.hadoop.ShellMain], exit code [1]
 
 
-###ÎÊÌâ¶¨Î»
-- µ¥¶ÀÖ´ĞĞSqoop½Å±¾Ã»ÓĞÎÊÌâ£¬µ«Í¨¹ıoozieµ÷ÓÃ³öÏÖÉÏÊöÒì³£¡£
-- ¼ì²éclasspath£¬¶¼ÓĞlog4jµÄjar°ü¡£
-- ·ÖÎöµ¥¶ÀÖ´ĞĞºÍÓÃoozieµ÷ÓÃµÄ½Å±¾²î±ğ¡£
-- µ¥¶ÀÖ´ĞĞÊ±£¬ÓĞ¸ö¹Ø¼ü²ÎÊı -Dhadoop.root.logger=INFO,console
-- ÓÃoozieµ÷ÓÃ¶ÈÊ±£¬Éú³ÉµÄ½Å±¾ -Dhadoop.root.logger=INFO,TLA,¼ì²élog4j.properties£¬Ò²ÓĞTLAµÄÅäÖÃ¡£
-- µ÷ÊÔºó·¢ÏÖÊÇ¹Ø¼üµÄ²ÎÊı-Dhadoop.tasklog.taskidÈ±ÉÙ£¬Õâ¸öÓëHADOOP_CLIENT_OPTSÓĞ¹Ø
+###é—®é¢˜å®šä½
+- å•ç‹¬æ‰§è¡ŒSqoopè„šæœ¬æ²¡æœ‰é—®é¢˜ï¼Œä½†é€šè¿‡oozieè°ƒç”¨å‡ºç°ä¸Šè¿°å¼‚å¸¸ã€‚
+- æ£€æŸ¥classpathï¼Œéƒ½æœ‰log4jçš„jaråŒ…ã€‚
+- åˆ†æå•ç‹¬æ‰§è¡Œå’Œç”¨oozieè°ƒç”¨çš„è„šæœ¬å·®åˆ«ã€‚
+- å•ç‹¬æ‰§è¡Œæ—¶ï¼Œæœ‰ä¸ªå…³é”®å‚æ•° -Dhadoop.root.logger=INFO,console
+- ç”¨oozieè°ƒç”¨åº¦æ—¶ï¼Œç”Ÿæˆçš„è„šæœ¬ -Dhadoop.root.logger=INFO,TLA,æ£€æŸ¥log4j.propertiesï¼Œä¹Ÿæœ‰TLAçš„é…ç½®ã€‚
+- è°ƒè¯•åå‘ç°æ˜¯å…³é”®çš„å‚æ•°-Dhadoop.tasklog.taskidç¼ºå°‘ï¼Œè¿™ä¸ªä¸HADOOP_CLIENT_OPTSæœ‰å…³
 
 
-###ÎÊÌâ½â¾ö
-- ĞŞ¸Ähadoop-env.sh
-- Ôö¼ÓHADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"À´½â¾ö¡£
+###é—®é¢˜è§£å†³
+- ä¿®æ”¹hadoop-env.sh
+- å¢åŠ HADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"æ¥è§£å†³ã€‚
 
-###²Î¿¼
-- ²Î¿¼[https://issues.apache.org/jira/browse/MAPREDUCE-3112](https://issues.apache.org/jira/browse/MAPREDUCE-3112)
+###å‚è€ƒ
+- å‚è€ƒ[https://issues.apache.org/jira/browse/MAPREDUCE-3112](https://issues.apache.org/jira/browse/MAPREDUCE-3112)
