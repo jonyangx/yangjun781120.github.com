@@ -33,7 +33,7 @@ Spring3.2请求处理大致过程
 - 代码详述
 > - DispatcherServlet.java  
 
-在onRefresh时，初始化
+>> - 在onRefresh时，初始化
        
 <pre><code class="java">
 /** 
@@ -46,7 +46,7 @@ protected void onRefresh(ApplicationContext context) {
 
 /** 
  * Initialize the strategy objects that this servlet uses. 
- * <p>May be overridden in subclasses in order to initialize further strategy objects. 
+ * May be overridden in subclasses in order to initialize further strategy objects. 
  */  
 protected void initStrategies(ApplicationContext context) {  
     initMultipartResolver(context);  
@@ -61,10 +61,9 @@ protected void initStrategies(ApplicationContext context) {
 }  
 
 
-
 /** 
  * Initialize the HandlerMappings used by this class. 
- * <p>If no HandlerMapping beans are defined in the BeanFactory for this namespace, 
+ * If no HandlerMapping beans are defined in the BeanFactory for this namespace, 
  * we default to BeanNameUrlHandlerMapping. 
  */  
 private void initHandlerMappings(ApplicationContext context) {  
@@ -101,105 +100,108 @@ private void initHandlerMappings(ApplicationContext context) {
 }  
       
 </code></pre>  
+
+
   
-处理请求时，找handlerAdapter处理请求
- <pre><code class="java">      
-/** 
- * Process the actual dispatching to the handler. 
- * <p>The handler will be obtained by applying the servlet's HandlerMappings in order. 
- * The HandlerAdapter will be obtained by querying the servlet's installed HandlerAdapters 
- * to find the first that supports the handler class. 
- * <p>All HTTP methods are handled by this method. It's up to HandlerAdapters or handlers 
- * themselves to decide which methods are acceptable. 
- * @param request current HTTP request 
- * @param response current HTTP response 
- * @throws Exception in case of any kind of processing failure 
- */  
-protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {  
-    HttpServletRequest processedRequest = request;  
-    HandlerExecutionChain mappedHandler = null;  
-    boolean multipartRequestParsed = false;  
-
-    WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);//获取WebAsyncManager  
-
-    try {  
-        ModelAndView mv = null;  
-        Exception dispatchException = null;  
-
-        try {  
-            processedRequest = checkMultipart(request);  
-            multipartRequestParsed = processedRequest != request;  
-
-            // Determine handler for the current request.  
-            mappedHandler = getHandler(processedRequest, false);//获取HandlerExecutionChain  
-            if (mappedHandler == null || mappedHandler.getHandler() == null) {  
-                noHandlerFound(processedRequest, response);  
-                return;  
-            }  
-
-            // Determine handler adapter for the current request.  
-            HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());//获取映射处理封装类  
-
-            // Process last-modified header, if supported by the handler.  
-            String method = request.getMethod();  
-            boolean isGet = "GET".equals(method);  
-            if (isGet || "HEAD".equals(method)) {  
-                long lastModified = ha.getLastModified(request, mappedHandler.getHandler());  
-                if (logger.isDebugEnabled()) {  
-                    String requestUri = urlPathHelper.getRequestUri(request);  
-                    logger.debug("Last-Modified value for [" + requestUri + "] is: " + lastModified);  
-                }  
-                if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {  
-                    return;  
-                }  
-            }  
-
-            if (!mappedHandler.applyPreHandle(processedRequest, response)) {  
-                return;  
-            }  
-
-            try {  
-                // Actually invoke the handler.  
-                mv = ha.handle(processedRequest, response, mappedHandler.getHandler());//调用handler处理  
-            }  
-            finally {  
-                if (asyncManager.isConcurrentHandlingStarted()) {  
-                    return;  
-                }  
-            }  
-
-            applyDefaultViewName(request, mv);  
-            mappedHandler.applyPostHandle(processedRequest, response, mv);  
-        }  
-        catch (Exception ex) {  
-            dispatchException = ex;  
-        }  
-        processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);  
-    }  
-    catch (Exception ex) {  
-        triggerAfterCompletion(processedRequest, response, mappedHandler, ex);  
-    }  
-    catch (Error err) {  
-        triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err);  
-    }  
-    finally {  
-        if (asyncManager.isConcurrentHandlingStarted()) {  
-            // Instead of postHandle and afterCompletion  
-            mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);  
-            return;  
-        }  
-        // Clean up any resources used by a multipart request.  
-        if (multipartRequestParsed) {  
-            cleanupMultipart(processedRequest);  
-        }  
-    }  
-}  
+>> - 处理请求时，找handlerAdapter处理请求
+ <pre><code class="java">       
+ 	
+				/** 
+				 * Process the actual dispatching to the handler. 
+				 * The handler will be obtained by applying the servlet's HandlerMappings in order. 
+				 * The HandlerAdapter will be obtained by querying the servlet's installed HandlerAdapters 
+				 * to find the first that supports the handler class. 
+				 * All HTTP methods are handled by this method. It's up to HandlerAdapters or handlers 
+				 * themselves to decide which methods are acceptable. 
+				 * @param request current HTTP request 
+				 * @param response current HTTP response 
+				 * @throws Exception in case of any kind of processing failure 
+				 */  
+				protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {  
+				    HttpServletRequest processedRequest = request;  
+				    HandlerExecutionChain mappedHandler = null;  
+				    boolean multipartRequestParsed = false;  
+				
+				    WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);//获取WebAsyncManager  
+				
+				    try {  
+				        ModelAndView mv = null;  
+				        Exception dispatchException = null;  
+				
+				        try {  
+				            processedRequest = checkMultipart(request);  
+				            multipartRequestParsed = processedRequest != request;  
+				
+				            // Determine handler for the current request.  
+				            mappedHandler = getHandler(processedRequest, false);//获取HandlerExecutionChain  
+				            if (mappedHandler == null || mappedHandler.getHandler() == null) {  
+				                noHandlerFound(processedRequest, response);  
+				                return;  
+				            }  
+				
+				            // Determine handler adapter for the current request.  
+				            HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());//获取映射处理封装类  
+				
+				            // Process last-modified header, if supported by the handler.  
+				            String method = request.getMethod();  
+				            boolean isGet = "GET".equals(method);  
+				            if (isGet || "HEAD".equals(method)) {  
+				                long lastModified = ha.getLastModified(request, mappedHandler.getHandler());  
+				                if (logger.isDebugEnabled()) {  
+				                    String requestUri = urlPathHelper.getRequestUri(request);  
+				                    logger.debug("Last-Modified value for [" + requestUri + "] is: " + lastModified);  
+				                }  
+				                if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {  
+				                    return;  
+				                }  
+				            }  
+				
+				            if (!mappedHandler.applyPreHandle(processedRequest, response)) {  
+				                return;  
+				            }  
+				
+				            try {  
+				                // Actually invoke the handler.  
+				                mv = ha.handle(processedRequest, response, mappedHandler.getHandler());//调用handler处理  
+				            }  
+				            finally {  
+				                if (asyncManager.isConcurrentHandlingStarted()) {  
+				                    return;  
+				                }  
+				            }  
+				
+				            applyDefaultViewName(request, mv);  
+				            mappedHandler.applyPostHandle(processedRequest, response, mv);  
+				        }  
+				        catch (Exception ex) {  
+				            dispatchException = ex;  
+				        }  
+				        processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);  
+				    }  
+				    catch (Exception ex) {  
+				        triggerAfterCompletion(processedRequest, response, mappedHandler, ex);  
+				    }  
+				    catch (Error err) {  
+				        triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err);  
+				    }  
+				    finally {  
+				        if (asyncManager.isConcurrentHandlingStarted()) {  
+				            // Instead of postHandle and afterCompletion  
+				            mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);  
+				            return;  
+				        }  
+				        // Clean up any resources used by a multipart request.  
+				        if (multipartRequestParsed) {  
+				            cleanupMultipart(processedRequest);  
+				        }  
+				    }  
+				}  
 </code></pre>  
 
 <pre><code class="java">
 /** 
  * Return the HandlerExecutionChain for this request. 
- * <p>Tries all handler mappings in order. 
+ * Tries all handler mappings in order. 
  * @param request current HTTP request 
  * @return the HandlerExecutionChain, or <code>null</code> if no handler could be found 
  */  
@@ -221,7 +223,7 @@ protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Ex
 > - RequestMappingHandlerAdapter.java
   
   
-调用handle方法处理，handle调用handleInternal方法
+>> - 调用handle方法处理，handle调用handleInternal方法
         
 <pre><code class="java">
 protected final ModelAndView handleInternal(HttpServletRequest request,  
@@ -252,7 +254,7 @@ protected final ModelAndView handleInternal(HttpServletRequest request,
 
 </code></pre>  
         
-调用invokeHandleMethod  
+>> - 调用invokeHandleMethod  
 
 <pre><code class="java">	
 /** 
@@ -360,7 +362,7 @@ public void setMessageConverters(List<HttpMessageConverter<?>> messageConverters
  * Set the default {@link AsyncTaskExecutor} to use when a controller method 
  * return a {@link Callable}. Controller methods can override this default on 
  * a per-request basis by returning an {@link WebAsyncTask}. 
- * <p>By default a {@link SimpleAsyncTaskExecutor} instance is used. 
+ * By default a {@link SimpleAsyncTaskExecutor} instance is used. 
  * It's recommended to change that default in production as the simple executor 
  * does not re-use threads. 
  */  
