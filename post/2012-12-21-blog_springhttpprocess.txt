@@ -1,0 +1,613 @@
+Spring3.2请求处理大致过程
+-------------------------
+
+###处理过程
+- 初始化:
+> - DispatcherServlet.onRefresh()
+> - DispatcherServlet.initStrategies()
+> - DispatcherServlet.initHandlerMappings()
+
+- 处理请求:
+> - DispatcherServlet.doDispatch()
+> - RequestMappingHandlerAdapter.handle()
+> - RequestMappingHandlerAdapter.handleInternal()
+> - RequestMappingHandlerAdapter.invokeHandleMethod()
+> - WebAsyncManager.setTaskExecutor()
+> - WebAsyncManager.setAsyncWebRequest()
+> - WebAsyncManager.registerCallableInterceptors()
+> - WebAsyncManager.registerDeferredResultInterceptors()
+> - ServletInvocableHandlerMethod.invokeAndHandle()
+> - CallableMethodReturnValueHandler/DeferredResultMethodReturnValueHandler.handleReturnValue()
+> - WebAsyncManager.startCallableProcessing()/WebAsyncManager.startDeferredResultProcessing()
+
+- 代码详述
+> - DispatcherServlet.java  
+
+在onRefresh时，初始化
+       
+<pre><code class="java">
+/** 
+ * This implementation calls {@link #initStrategies}. 
+ */  
+@Override  
+protected void onRefresh(ApplicationContext context) {  
+    initStrategies(context);  
+}  
+
+/** 
+ * Initialize the strategy objects that this servlet uses. 
+ * <p>May be overridden in subclasses in order to initialize further strategy objects. 
+ */  
+protected void initStrategies(ApplicationContext context) {  
+    initMultipartResolver(context);  
+    initLocaleResolver(context);  
+    initThemeResolver(context);  
+    initHandlerMappings(context);//初始化Handler映射,例如@RequestMapping(value = "/something", method = RequestMethod.PUT)  
+    initHandlerAdapters(context);  
+    initHandlerExceptionResolvers(context);  
+    initRequestToViewNameTranslator(context);  
+    initViewResolvers(context);  
+    initFlashMapManager(context);  
+}  
+
+
+
+/** 
+ * Initialize the HandlerMappings used by this class. 
+ * <p>If no HandlerMapping beans are defined in the BeanFactory for this namespace, 
+ * we default to BeanNameUrlHandlerMapping. 
+ */  
+private void initHandlerMappings(ApplicationContext context) {  
+    this.handlerMappings = null;  
+
+    if (this.detectAllHandlerMappings) {  
+        // Find all HandlerMappings in the ApplicationContext, including ancestor contexts.  
+        Map<String, HandlerMapping> matchingBeans =  
+                BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);//从Context中，找@RequestMapping，构建映射关系  
+        if (!matchingBeans.isEmpty()) {  
+            this.handlerMappings = new ArrayList<HandlerMapping>(matchingBeans.values());  
+            // We keep HandlerMappings in sorted order.  
+            OrderComparator.sort(this.handlerMappings);  
+        }  
+    }  
+    else {  
+        try {  
+            HandlerMapping hm = context.getBean(HANDLER_MAPPING_BEAN_NAME, HandlerMapping.class);//缺省  
+            this.handlerMappings = Collections.singletonList(hm);  
+        }  
+        catch (NoSuchBeanDefinitionException ex) {  
+            // Ignore, we'll add a default HandlerMapping later.  
+        }  
+    }  
+
+    // Ensure we have at least one HandlerMapping, by registering  
+    // a default HandlerMapping if no other mappings are found.  
+    if (this.handlerMappings == null) {  
+        this.handlerMappings = getDefaultStrategies(context, HandlerMapping.class);  
+        if (logger.isDebugEnabled()) {  
+            logger.debug("No HandlerMappings found in servlet '" + getServletName() + "': using default");  
+        }  
+    }  
+}  
+      
+</code></pre>  
+  
+处理请求时，找handlerAdapter处理请求
+ <pre><code class="java">      
+/** 
+ * Process the actual dispatching to the handler. 
+ * <p>The handler will be obtained by applying the servlet's HandlerMappings in order. 
+ * The HandlerAdapter will be obtained by querying the servlet's installed HandlerAdapters 
+ * to find the first that supports the handler class. 
+ * <p>All HTTP methods are handled by this method. It's up to HandlerAdapters or handlers 
+ * themselves to decide which methods are acceptable. 
+ * @param request current HTTP request 
+ * @param response current HTTP response 
+ * @throws Exception in case of any kind of processing failure 
+ */  
+protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {  
+    HttpServletRequest processedRequest = request;  
+    HandlerExecutionChain mappedHandler = null;  
+    boolean multipartRequestParsed = false;  
+
+    WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);//获取WebAsyncManager  
+
+    try {  
+        ModelAndView mv = null;  
+        Exception dispatchException = null;  
+
+        try {  
+            processedRequest = checkMultipart(request);  
+            multipartRequestParsed = processedRequest != request;  
+
+            // Determine handler for the current request.  
+            mappedHandler = getHandler(processedRequest, false);//获取HandlerExecutionChain  
+            if (mappedHandler == null || mappedHandler.getHandler() == null) {  
+                noHandlerFound(processedRequest, response);  
+                return;  
+            }  
+
+            // Determine handler adapter for the current request.  
+            HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());//获取映射处理封装类  
+
+            // Process last-modified header, if supported by the handler.  
+            String method = request.getMethod();  
+            boolean isGet = "GET".equals(method);  
+            if (isGet || "HEAD".equals(method)) {  
+                long lastModified = ha.getLastModified(request, mappedHandler.getHandler());  
+                if (logger.isDebugEnabled()) {  
+                    String requestUri = urlPathHelper.getRequestUri(request);  
+                    logger.debug("Last-Modified value for [" + requestUri + "] is: " + lastModified);  
+                }  
+                if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {  
+                    return;  
+                }  
+            }  
+
+            if (!mappedHandler.applyPreHandle(processedRequest, response)) {  
+                return;  
+            }  
+
+            try {  
+                // Actually invoke the handler.  
+                mv = ha.handle(processedRequest, response, mappedHandler.getHandler());//调用handler处理  
+            }  
+            finally {  
+                if (asyncManager.isConcurrentHandlingStarted()) {  
+                    return;  
+                }  
+            }  
+
+            applyDefaultViewName(request, mv);  
+            mappedHandler.applyPostHandle(processedRequest, response, mv);  
+        }  
+        catch (Exception ex) {  
+            dispatchException = ex;  
+        }  
+        processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);  
+    }  
+    catch (Exception ex) {  
+        triggerAfterCompletion(processedRequest, response, mappedHandler, ex);  
+    }  
+    catch (Error err) {  
+        triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err);  
+    }  
+    finally {  
+        if (asyncManager.isConcurrentHandlingStarted()) {  
+            // Instead of postHandle and afterCompletion  
+            mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);  
+            return;  
+        }  
+        // Clean up any resources used by a multipart request.  
+        if (multipartRequestParsed) {  
+            cleanupMultipart(processedRequest);  
+        }  
+    }  
+}  
+
+
+/** 
+ * Return the HandlerExecutionChain for this request. 
+ * <p>Tries all handler mappings in order. 
+ * @param request current HTTP request 
+ * @return the HandlerExecutionChain, or <code>null</code> if no handler could be found 
+ */  
+protected HandlerExecutionChain getHandler(HttpServletRequest request) throws Exception {  
+    for (HandlerMapping hm : this.handlerMappings) {  
+        if (logger.isTraceEnabled()) {  
+            logger.trace(  
+                    "Testing handler map [" + hm + "] in DispatcherServlet with name '" + getServletName() + "'");  
+        }  
+        HandlerExecutionChain handler = hm.getHandler(request);  
+        if (handler != null) {  
+            return handler;  
+        }  
+    }  
+    return null;  
+}  
+</code></pre>  
+
+> - RequestMappingHandlerAdapter.java
+  
+  
+调用handle方法处理，handle调用handleInternal方法
+        
+<pre><code class="java">
+protected final ModelAndView handleInternal(HttpServletRequest request,  
+        HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {  
+
+    if (getSessionAttributesHandler(handlerMethod).hasSessionAttributes()) {  
+        // Always prevent caching in case of session attribute management.  
+        checkAndPrepare(request, response, this.cacheSecondsForSessionAttributeHandlers, true);  
+    }  
+    else {  
+        // Uses configured default cacheSeconds setting.  
+        checkAndPrepare(request, response, true);  
+    }  
+
+    // Execute invokeHandlerMethod in synchronized block if required.  
+    if (this.synchronizeOnSession) {  
+        HttpSession session = request.getSession(false);  
+        if (session != null) {  
+            Object mutex = WebUtils.getSessionMutex(session);  
+            synchronized (mutex) {  
+                return invokeHandleMethod(request, response, handlerMethod);  
+            }  
+        }  
+    }  
+
+    return invokeHandleMethod(request, response, handlerMethod);  
+}  
+
+</code></pre>  
+        
+调用invokeHandleMethod  
+
+<pre><code class="java">	
+/** 
+  * Invoke the {@link RequestMapping} handler method preparing a {@link ModelAndView} if view resolution is required. 
+  */  
+ private ModelAndView invokeHandleMethod(HttpServletRequest request,  
+         HttpServletResponse response, HandlerMethod handlerMethod) throws Exception {  
+
+     ServletWebRequest webRequest = new ServletWebRequest(request, response);  
+
+     WebDataBinderFactory binderFactory = getDataBinderFactory(handlerMethod);  
+     ModelFactory modelFactory = getModelFactory(handlerMethod, binderFactory);  
+     ServletInvocableHandlerMethod requestMappingMethod = createRequestMappingMethod(handlerMethod, binderFactory);//创建请求映射方法,注意这里会设置  
+
+     ModelAndViewContainer mavContainer = new ModelAndViewContainer();  
+     mavContainer.addAllAttributes(RequestContextUtils.getInputFlashMap(request));  
+     modelFactory.initModel(webRequest, mavContainer, requestMappingMethod);  
+     mavContainer.setIgnoreDefaultModelOnRedirect(this.ignoreDefaultModelOnRedirect);  
+
+     //异步初始化  
+     AsyncWebRequest asyncWebRequest = WebAsyncUtils.createAsyncWebRequest(request, response);  
+     asyncWebRequest.setTimeout(this.asyncRequestTimeout);  
+
+     final WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);  
+     asyncManager.setTaskExecutor(this.taskExecutor);//设置执行类AsyncManager会用到  
+     asyncManager.setAsyncWebRequest(asyncWebRequest);  
+     asyncManager.registerCallableInterceptors(this.callableInterceptors);  
+     asyncManager.registerDeferredResultInterceptors(this.deferredResultInterceptors);  
+
+     if (asyncManager.hasConcurrentResult()) {  
+         Object result = asyncManager.getConcurrentResult();  
+         mavContainer = (ModelAndViewContainer) asyncManager.getConcurrentResultContext()[0];  
+         asyncManager.clearConcurrentResult();  
+
+         if (logger.isDebugEnabled()) {  
+             logger.debug("Found concurrent result value [" + result + "]");  
+         }  
+         requestMappingMethod = requestMappingMethod.wrapConcurrentResult(result);  
+     }  
+
+     requestMappingMethod.invokeAndHandle(webRequest, mavContainer);  
+
+     if (asyncManager.isConcurrentHandlingStarted()) {  
+         return null;  
+     }  
+
+     return getModelAndView(mavContainer, modelFactory, webRequest);  
+ }  
+
+
+ private ServletInvocableHandlerMethod createRequestMappingMethod(  
+         HandlerMethod handlerMethod, WebDataBinderFactory binderFactory) {  
+
+     ServletInvocableHandlerMethod requestMethod;  
+     requestMethod = new ServletInvocableHandlerMethod(handlerMethod);  
+     requestMethod.setHandlerMethodArgumentResolvers(this.argumentResolvers);  
+     requestMethod.setHandlerMethodReturnValueHandlers(this.returnValueHandlers);//注入ReturnValueHandlers  
+     requestMethod.setDataBinderFactory(binderFactory);  
+     requestMethod.setParameterNameDiscoverer(this.parameterNameDiscoverer);  
+     return requestMethod;  
+ }  
+
+
+ /** 
+  * Configure the complete list of supported return value types thus 
+  * overriding handlers that would otherwise be configured by default. 
+  */  
+  //如果需要异步处理，需要注入例如DeferredResultMethodReturnValueHandler等  
+ public void setReturnValueHandlers(List<HandlerMethodReturnValueHandler> returnValueHandlers) {  
+     if (returnValueHandlers == null) {  
+         this.returnValueHandlers = null;  
+     }  
+     else {  
+         this.returnValueHandlers = new HandlerMethodReturnValueHandlerComposite();  
+         this.returnValueHandlers.addHandlers(returnValueHandlers);  
+     }  
+ }  
+
+ /** 
+  * Default constructor. 
+  */  
+ public RequestMappingHandlerAdapter() {  
+
+     StringHttpMessageConverter stringHttpMessageConverter = new StringHttpMessageConverter();  
+     stringHttpMessageConverter.setWriteAcceptCharset(false); // See SPR-7316  
+
+     this.messageConverters = new ArrayList<HttpMessageConverter<?>>();//converter均集成HttpMessageConverter来拦截http请求  
+     this.messageConverters.add(new ByteArrayHttpMessageConverter());  
+     this.messageConverters.add(stringHttpMessageConverter);  
+     this.messageConverters.add(new SourceHttpMessageConverter<Source>());  
+     this.messageConverters.add(new AllEncompassingFormHttpMessageConverter());  
+ }  
+
+** 
+ * Provide the converters to use in argument resolvers and return value 
+ * handlers that support reading and/or writing to the body of the 
+ * request and response. 
+ */  
+public void setMessageConverters(List<HttpMessageConverter<?>> messageConverters) {  
+    this.messageConverters = messageConverters;  
+}  
+
+
+/** 
+ * Set the default {@link AsyncTaskExecutor} to use when a controller method 
+ * return a {@link Callable}. Controller methods can override this default on 
+ * a per-request basis by returning an {@link WebAsyncTask}. 
+ * <p>By default a {@link SimpleAsyncTaskExecutor} instance is used. 
+ * It's recommended to change that default in production as the simple executor 
+ * does not re-use threads. 
+ */  
+ //设置异步执行类,给AsyncManager调用  
+public void setTaskExecutor(AsyncTaskExecutor taskExecutor) {  
+    this.taskExecutor = taskExecutor;  
+}  
+</code></pre>  
+
+> - ServletInvocableHandlerMethod.java  
+
+调用invokeAndHandle
+
+<pre><code class="java">
+
+/** 
+ * Invokes the method and handles the return value through a registered 
+ * {@link HandlerMethodReturnValueHandler}. 
+ * 
+ * @param webRequest the current request 
+ * @param mavContainer the ModelAndViewContainer for this request 
+ * @param providedArgs "given" arguments matched by type, not resolved 
+ */  
+public final void invokeAndHandle(ServletWebRequest webRequest,  
+        ModelAndViewContainer mavContainer, Object... providedArgs) throws Exception {  
+
+    Object returnValue = invokeForRequest(webRequest, mavContainer, providedArgs);  
+
+    setResponseStatus(webRequest);  
+
+    if (returnValue == null) {  
+        if (isRequestNotModified(webRequest) || hasResponseStatus() || mavContainer.isRequestHandled()) {  
+            mavContainer.setRequestHandled(true);  
+            return;  
+        }  
+    }  
+    else if (StringUtils.hasText(this.responseReason)) {  
+        mavContainer.setRequestHandled(true);  
+        return;  
+    }  
+
+    mavContainer.setRequestHandled(false);//异步处理，表示没有处理完毕  
+
+    try {//调用HandlerMethodReturnValueHandler做异步处理，returnValue为DeferredResult or Callable or  
+        this.returnValueHandlers.handleReturnValue(returnValue, getReturnValueType(returnValue), mavContainer, webRequest);  
+    }  
+    catch (Exception ex) {  
+        if (logger.isTraceEnabled()) {  
+            logger.trace(getReturnValueHandlingErrorMessage("Error handling return value", returnValue), ex);  
+        }  
+        throw ex;  
+    }  
+}  
+</code></pre> 
+> - CallableMethodReturnValueHandler.java
+
+调用handleReturnValue方法
+       
+<pre><code class="java">
+public void handleReturnValue(Object returnValue,  
+         MethodParameter returnType, ModelAndViewContainer mavContainer,  
+         NativeWebRequest webRequest) throws Exception {  
+
+     if (returnValue == null) {  
+         mavContainer.setRequestHandled(true);  
+         return;  
+     }  
+
+     Callable<?> callable = (Callable<?>) returnValue;  
+     WebAsyncUtils.getAsyncManager(webRequest).startCallableProcessing(callable, mavContainer);  
+}   
+</code></pre>       
+
+> - DeferredResultMethodReturnValueHandler.java
+
+调用handleReturnValue方法
+        
+<pre><code class="java">
+public void handleReturnValue(Object returnValue,  
+       MethodParameter returnType, ModelAndViewContainer mavContainer,  
+       NativeWebRequest webRequest) throws Exception {  
+
+   if (returnValue == null) {  
+       mavContainer.setRequestHandled(true);  
+       return;  
+   }  
+
+   DeferredResult<?> deferredResult = (DeferredResult<?>) returnValue;  
+   WebAsyncUtils.getAsyncManager(webRequest).startDeferredResultProcessing(deferredResult, mavContainer);  
+}    
+</code></pre>     
+
+> - WebAsyncManager.java 参考Spring Servlet3 扩展模块笔记
+
+调用startCallableProcessing方法
+       
+<pre><code class="java">
+/** 
+ * Start concurrent request processing and execute the given task with an 
+ * {@link #setTaskExecutor(AsyncTaskExecutor) AsyncTaskExecutor}. The result 
+ * from the task execution is saved and the request dispatched in order to 
+ * resume processing of that result. If the task raises an Exception then 
+ * the saved result will be the raised Exception. 
+ * 
+ * @param callable a unit of work to be executed asynchronously 
+ * @param processingContext additional context to save that can be accessed 
+ * via {@link #getConcurrentResultContext()} 
+ * @throws Exception If concurrent processing failed to start 
+ * 
+ * @see #getConcurrentResult() 
+ * @see #getConcurrentResultContext() 
+ */  
+@SuppressWarnings({ "rawtypes", "unchecked" })  
+public void startCallableProcessing(final Callable<?> callable, Object... processingContext) throws Exception {  
+    Assert.notNull(callable, "Callable must not be null");  
+    startCallableProcessing(new WebAsyncTask(callable), processingContext);  
+}  
+
+/** 
+ * Use the given {@link WebAsyncTask} to configure the task executor as well as 
+ * the timeout value of the {@code AsyncWebRequest} before delegating to 
+ * {@link #startCallableProcessing(Callable, Object...)}. 
+ * 
+ * @param webAsyncTask an WebAsyncTask containing the target {@code Callable} 
+ * @param processingContext additional context to save that can be accessed 
+ * via {@link #getConcurrentResultContext()} 
+ * @throws Exception If concurrent processing failed to start 
+ */  
+public void startCallableProcessing(final WebAsyncTask<?> webAsyncTask, Object... processingContext) throws Exception {  
+    Assert.notNull(webAsyncTask, "WebAsyncTask must not be null");  
+    Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");  
+
+    Long timeout = webAsyncTask.getTimeout();  
+    if (timeout != null) {  
+        this.asyncWebRequest.setTimeout(timeout);  
+    }  
+
+    AsyncTaskExecutor executor = webAsyncTask.getExecutor();  
+    if (executor != null) {  
+        this.taskExecutor = executor;  
+    }  
+
+    List<CallableProcessingInterceptor> interceptors = new ArrayList<CallableProcessingInterceptor>();  
+    interceptors.add(webAsyncTask.getInterceptor());  
+    interceptors.addAll(this.callableInterceptors.values());  
+    interceptors.add(timeoutCallableInterceptor);  
+
+    final Callable<?> callable = webAsyncTask.getCallable();  
+    final CallableInterceptorChain interceptorChain = new CallableInterceptorChain(interceptors);  
+
+    this.asyncWebRequest.addTimeoutHandler(new Runnable() {  
+        public void run() {  
+            logger.debug("Processing timeout");  
+            Object result = interceptorChain.triggerAfterTimeout(asyncWebRequest, callable);  
+            if (result != CallableProcessingInterceptor.RESULT_NONE) {  
+                setConcurrentResultAndDispatch(result);  
+            }  
+        }  
+    });  
+
+    this.asyncWebRequest.addCompletionHandler(new Runnable() {  
+        public void run() {  
+            interceptorChain.triggerAfterCompletion(asyncWebRequest, callable);  
+        }  
+    });  
+
+    interceptorChain.applyBeforeConcurrentHandling(asyncWebRequest, callable);  
+
+    startAsyncProcessing(processingContext);  
+
+    this.taskExecutor.submit(new Runnable() {  
+        public void run() {  
+            Object result = null;  
+            try {  
+                interceptorChain.applyPreProcess(asyncWebRequest, callable);  
+                result = callable.call();  
+            }  
+            catch (Throwable t) {  
+                result = t;  
+            }  
+            finally {  
+                result = interceptorChain.applyPostProcess(asyncWebRequest, callable, result);  
+            }  
+            setConcurrentResultAndDispatch(result);  
+        }  
+    });  
+}    
+</code></pre>
+
+调用startDeferredResultProcessing方法
+        
+<pre><code class="java">
+/** 
+ * Start concurrent request processing and initialize the given 
+ * {@link DeferredResult} with a {@link DeferredResultHandler} that saves 
+ * the result and dispatches the request to resume processing of that 
+ * result. The {@code AsyncWebRequest} is also updated with a completion 
+ * handler that expires the {@code DeferredResult} and a timeout handler 
+ * assuming the {@code DeferredResult} has a default timeout result. 
+ * 
+ * @param deferredResult the DeferredResult instance to initialize 
+ * @param processingContext additional context to save that can be accessed 
+ * via {@link #getConcurrentResultContext()} 
+ * @throws Exception If concurrent processing failed to start 
+ * 
+ * @see #getConcurrentResult() 
+ * @see #getConcurrentResultContext() 
+ */  
+public void startDeferredResultProcessing(  
+        final DeferredResult<?> deferredResult, Object... processingContext) throws Exception {  
+
+    Assert.notNull(deferredResult, "DeferredResult must not be null");  
+    Assert.state(this.asyncWebRequest != null, "AsyncWebRequest must not be null");  
+
+    Long timeout = deferredResult.getTimeoutValue();  
+    if (timeout != null) {  
+        this.asyncWebRequest.setTimeout(timeout);  
+    }  
+
+    List<DeferredResultProcessingInterceptor> interceptors = new ArrayList<DeferredResultProcessingInterceptor>();  
+    interceptors.add(deferredResult.getInterceptor());  
+    interceptors.addAll(this.deferredResultInterceptors.values());  
+    interceptors.add(timeoutDeferredResultInterceptor);  
+
+    final DeferredResultInterceptorChain interceptorChain = new DeferredResultInterceptorChain(interceptors);  
+
+    this.asyncWebRequest.addTimeoutHandler(new Runnable() {  
+        public void run() {  
+            try {  
+                interceptorChain.triggerAfterTimeout(asyncWebRequest, deferredResult);  
+            }  
+            catch (Throwable t) {  
+                setConcurrentResultAndDispatch(t);  
+            }  
+        }  
+    });  
+
+    this.asyncWebRequest.addCompletionHandler(new Runnable() {  
+        public void run() {  
+            interceptorChain.triggerAfterCompletion(asyncWebRequest, deferredResult);  
+        }  
+    });  
+
+    interceptorChain.applyBeforeConcurrentHandling(asyncWebRequest, deferredResult);  
+
+    startAsyncProcessing(processingContext);  
+
+    try {  
+        interceptorChain.applyPreProcess(this.asyncWebRequest, deferredResult);  
+        deferredResult.setResultHandler(new DeferredResultHandler() {  
+            public void handleResult(Object result) {  
+                result = interceptorChain.applyPostProcess(asyncWebRequest, deferredResult, result);  
+                setConcurrentResultAndDispatch(result);  
+            }  
+        });  
+    }  
+    catch (Throwable t) {  
+        setConcurrentResultAndDispatch(t);  
+    }  
+}  
+</code></pre>

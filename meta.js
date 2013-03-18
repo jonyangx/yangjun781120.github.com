@@ -6,6 +6,7 @@
         {"name": "life", "text":"生活"}
     ],
     "articles":[
+        {"title": " Spring3.2 Http 请求处理过程笔记", "file": "2012-12-21-blog_springhttpprocess", "cate":"tech"},
         {"title": "大数据笔记(一)", "file": "2013-01-17-blog_bigdatanote1", "cate":"tech"},
         {"title": "Oozie调用sqoop导数据出现NoClassDefFoundError问题", "file": "2013-03-17-blog_oozie-sqoop-notdeffound", "cate":"tech"}
         ]
