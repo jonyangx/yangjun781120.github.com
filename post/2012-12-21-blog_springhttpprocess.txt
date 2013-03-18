@@ -1,4 +1,14 @@
-﻿Spring3.2请求处理大致过程
+﻿<link rel="stylesheet" title="Default" href="styles/default.css">
+<link rel="alternate stylesheet" title="GitHub" href="styles/github.css">
+<script src="highlight.pack.js"></script>
+<script>
+hljs.tabReplace = '    ';
+hljs.initHighlightingOnLoad();
+</script>
+
+
+
+Spring3.2请求处理大致过程
 -------------------------
 
 ###处理过程
@@ -8,7 +18,7 @@
 > - DispatcherServlet.initHandlerMappings()
 
 - 处理请求:
-> - DispatcherServlet.doDispatch()
+> - DispatcherServlet.doDispatch()F
 > - RequestMappingHandlerAdapter.handle()
 > - RequestMappingHandlerAdapter.handleInternal()
 > - RequestMappingHandlerAdapter.invokeHandleMethod()
@@ -184,8 +194,9 @@ protected void doDispatch(HttpServletRequest request, HttpServletResponse respon
         }  
     }  
 }  
+</code></pre>  
 
-
+<pre><code class="java">
 /** 
  * Return the HandlerExecutionChain for this request. 
  * <p>Tries all handler mappings in order. 
@@ -611,3 +622,10 @@ public void startDeferredResultProcessing(
     }  
 }  
 </code></pre>
+
+
+<script type="text/javascript">
+$(document).ready(function() {
+    $('pre code').each(function(i, e) {hljs.highlightBlock(e)});
+});
+</script>
