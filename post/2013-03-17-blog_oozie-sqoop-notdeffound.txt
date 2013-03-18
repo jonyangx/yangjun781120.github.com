@@ -1,5 +1,6 @@
 ﻿###异常
-		
+<pre><code class="java">		
+
 		Exception in thread "main" java.lang.NoClassDefFoundError: Could not initialize class org.apache.log4j.LogManager
 		at org.apache.log4j.Logger.getLogger(Logger.java:105)
 		at org.apache.sqoop.util.LoggingUtils.setDebugLevel(LoggingUtils.java:69)
@@ -15,6 +16,7 @@
 		at com.cloudera.sqoop.Sqoop.main(Sqoop.java:57)
 		Failing Oozie Launcher, Main class [org.apache.oozie.action.hadoop.ShellMain], exit code [1]
 
+</code></pre> 
 
 ###问题定位
 - 单独执行Sqoop脚本没有问题，但通过oozie调用出现上述异常。
@@ -26,8 +28,8 @@
 
 
 ###问题解决
-- 修改hadoop-env.sh
-- 增加HADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"来解决。
+- 修改`hadoop-env.sh`
+- 增加`HADOOP_OPTS="-Djava.net.preferIPv4Stack=true $HADOOP_CLIENT_OPTS"`来解决。
 
 ###参考
 - 参考[https://issues.apache.org/jira/browse/MAPREDUCE-3112](https://issues.apache.org/jira/browse/MAPREDUCE-3112)
