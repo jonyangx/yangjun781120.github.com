@@ -1,6 +1,6 @@
 ﻿{
     "site_name": "杨军的博客",
-    "copyright": "YangJun 2013",
+    "copyright": "yangjun1120@gmail.com 2013",
     "cates": [
         {"name": "tech", "text":"技术"},
         {"name": "life", "text":"生活"}
