@@ -73,40 +73,40 @@ hljs.initHighlightingOnLoad();
 
 <pre><code class="java">
 
-		InputStreamtaskLogReader =
-	       new TaskLog.Reader(taskId,filter, start, end, isCleanup);
+	InputStreamtaskLogReader =
+       new TaskLog.Reader(taskId,filter, start, end, isCleanup);
 
-		TaskLog.Reader
+	TaskLog.Reader
 
-		public Reader(TaskAttemptIDtaskid, LogName kind,
-                  long start,long end, boolean isCleanup) throwsIOException {
-		    // find the right log file
-	        Map<LogName, LogFileDetail>allFilesDetails =
-	        getAllLogsFileDetails(taskid, isCleanup);
+	public Reader(TaskAttemptIDtaskid, LogName kind,
+              long start,long end, boolean isCleanup) throwsIOException {
+	    // find the right log file
+        Map<LogName, LogFileDetail>allFilesDetails =
+        getAllLogsFileDetails(taskid, isCleanup);
+ 
+		static Map<LogName, LogFileDetail> getAllLogsFileDetails(
+		      TaskAttemptID taskid, booleanisCleanup) throws IOException {
 	 
-			static Map<LogName, LogFileDetail> getAllLogsFileDetails(
-			      TaskAttemptID taskid, booleanisCleanup) throws IOException {
+		    Map<LogName, LogFileDetail>allLogsFileDetails =
+		        newHashMap<LogName, LogFileDetail>();
 		 
-			    Map<LogName, LogFileDetail>allLogsFileDetails =
-			        newHashMap<LogName, LogFileDetail>();
-			 
-			    File indexFile = getIndexFile(taskid,isCleanup);
-			    BufferedReader fis;
-			    try {
-			      fis = newBufferedReader(new InputStreamReader(
-			        SecureIOUtils.openForRead(indexFile,obtainLogDirOwner(taskid))));
-			    } catch(FileNotFoundException ex) {
-			      LOG.warn("Index file for the log of " + taskid + " does not exist.");
-			 
-			      //Assume no task reuse is used and files exist on attemptdir
-			      StringBuffer input = newStringBuffer();
-			      input.append(LogFileDetail.LOCATION
-			                     + getAttemptDir(taskid,isCleanup) + "\n");
-			      for(LogName logName : LOGS_TRACKED_BY_INDEX_FILES) {
-			        input.append(logName + ":0 -1\n");
-			      }
-			      fis = newBufferedReader(new StringReader(input.toString()));
-			}
+		    File indexFile = getIndexFile(taskid,isCleanup);
+		    BufferedReader fis;
+		    try {
+		      fis = newBufferedReader(new InputStreamReader(
+		        SecureIOUtils.openForRead(indexFile,obtainLogDirOwner(taskid))));
+		    } catch(FileNotFoundException ex) {
+		      LOG.warn("Index file for the log of " + taskid + " does not exist.");
+		 
+		      //Assume no task reuse is used and files exist on attemptdir
+		      StringBuffer input = newStringBuffer();
+		      input.append(LogFileDetail.LOCATION
+		                     + getAttemptDir(taskid,isCleanup) + "\n");
+		      for(LogName logName : LOGS_TRACKED_BY_INDEX_FILES) {
+		        input.append(logName + ":0 -1\n");
+		      }
+		      fis = newBufferedReader(new StringReader(input.toString()));
+		}
 			
 </pre></code>
 
@@ -114,59 +114,59 @@ hljs.initHighlightingOnLoad();
 类似getAllLogsFileDetails一样，先从log.index获取日志目录获取logdir，
 <pre><code class="java">
 
-		private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
-				TaskLog.LogName type) throws IOException {
-			File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
-			if (f.exists() && f.canRead()) {
-				return true;
-			} else {
-				File indexFile = TaskLog.getIndexFile(taskId, isCleanup);
-				if (!indexFile.exists()) {
-					return false;
-			}
-
-
-			BufferedReader fis;
-			try {
-				fis = new BufferedReader(new InputStreamReader(
-						SecureIOUtils.openForRead(indexFile,
-								TaskLog.obtainLogDirOwner(taskId))));
-			} catch (FileNotFoundException ex) {
-				LOG.warn("Index file for the log of " + taskId
-						+ " does not exist.");
-
-
-				// Assume no task reuse is used and files exist on attemptdir
-				StringBuffer input = new StringBuffer();
-				input.append(LogFileDetail.LOCATION
-						+ TaskLog.getAttemptDir(taskId, isCleanup) + "\n");
-				for (LogName logName : TaskLog.LOGS_TRACKED_BY_INDEX_FILES) {
-					input.append(logName + ":0 -1\n");
-				}
-				fis = new BufferedReader(new StringReader(input.toString()));
-			}
-
-
-			try {
-				String str = fis.readLine();
-				if (str == null) { // thefile doesn't have anything
-					throw new IOException("Index file for the log of " + taskId
-							+ "is empty.");
-				}
-				String loc = str.substring(str.indexOf(LogFileDetail.LOCATION)
-						+ LogFileDetail.LOCATION.length());
-				File tf = new File(loc, type.toString());
-				return tf.exists() && tf.canRead();
-
-
-			} finally {
-				if (fis != null)
-					fis.close();
-			}
+	private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
+			TaskLog.LogName type) throws IOException {
+		File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
+		if (f.exists() && f.canRead()) {
+			return true;
+		} else {
+			File indexFile = TaskLog.getIndexFile(taskId, isCleanup);
+			if (!indexFile.exists()) {
+				return false;
 		}
 
 
+		BufferedReader fis;
+		try {
+			fis = new BufferedReader(new InputStreamReader(
+					SecureIOUtils.openForRead(indexFile,
+							TaskLog.obtainLogDirOwner(taskId))));
+		} catch (FileNotFoundException ex) {
+			LOG.warn("Index file for the log of " + taskId
+					+ " does not exist.");
+
+
+			// Assume no task reuse is used and files exist on attemptdir
+			StringBuffer input = new StringBuffer();
+			input.append(LogFileDetail.LOCATION
+					+ TaskLog.getAttemptDir(taskId, isCleanup) + "\n");
+			for (LogName logName : TaskLog.LOGS_TRACKED_BY_INDEX_FILES) {
+				input.append(logName + ":0 -1\n");
+			}
+			fis = new BufferedReader(new StringReader(input.toString()));
+		}
+
+
+		try {
+			String str = fis.readLine();
+			if (str == null) { // thefile doesn't have anything
+				throw new IOException("Index file for the log of " + taskId
+						+ "is empty.");
+			}
+			String loc = str.substring(str.indexOf(LogFileDetail.LOCATION)
+					+ LogFileDetail.LOCATION.length());
+			File tf = new File(loc, type.toString());
+			return tf.exists() && tf.canRead();
+
+
+		} finally {
+			if (fis != null)
+				fis.close();
+		}
 	}
+
+
+	
 </pre></code>
 
 > - 从logdir中判断是否有syslog。
