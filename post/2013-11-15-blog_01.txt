@@ -72,54 +72,57 @@ hljs.initHighlightingOnLoad();
 获取日志文件时会从log.index读取。
 
 <pre><code class="java">
+
 		InputStreamtaskLogReader =
 	       new TaskLog.Reader(taskId,filter, start, end, isCleanup);
+
 		TaskLog.Reader
+
 		public Reader(TaskAttemptIDtaskid, LogName kind,
                   long start,long end, boolean isCleanup) throwsIOException {
-	    // find the right log file
-        Map<LogName, LogFileDetail>allFilesDetails =
-        getAllLogsFileDetails(taskid, isCleanup);
- 
-		static Map<LogName, LogFileDetail> getAllLogsFileDetails(
-		      TaskAttemptID taskid, booleanisCleanup) throws IOException {
+		    // find the right log file
+	        Map<LogName, LogFileDetail>allFilesDetails =
+	        getAllLogsFileDetails(taskid, isCleanup);
+	 
+			static Map<LogName, LogFileDetail> getAllLogsFileDetails(
+			      TaskAttemptID taskid, booleanisCleanup) throws IOException {
 		 
-		    Map<LogName, LogFileDetail>allLogsFileDetails =
-		        newHashMap<LogName, LogFileDetail>();
-		 
-		    File indexFile = getIndexFile(taskid,isCleanup);
-		    BufferedReader fis;
-		    try {
-		      fis = newBufferedReader(new InputStreamReader(
-		        SecureIOUtils.openForRead(indexFile,obtainLogDirOwner(taskid))));
-		    } catch(FileNotFoundException ex) {
-		      LOG.warn("Index file for the log of " + taskid + " does not exist.");
-		 
-		      //Assume no task reuse is used and files exist on attemptdir
-		      StringBuffer input = newStringBuffer();
-		      input.append(LogFileDetail.LOCATION
-		                     + getAttemptDir(taskid,isCleanup) + "\n");
-		      for(LogName logName : LOGS_TRACKED_BY_INDEX_FILES) {
-		        input.append(logName + ":0 -1\n");
-		      }
-		      fis = newBufferedReader(new StringReader(input.toString()));
-		}
-		………………….
+			    Map<LogName, LogFileDetail>allLogsFileDetails =
+			        newHashMap<LogName, LogFileDetail>();
+			 
+			    File indexFile = getIndexFile(taskid,isCleanup);
+			    BufferedReader fis;
+			    try {
+			      fis = newBufferedReader(new InputStreamReader(
+			        SecureIOUtils.openForRead(indexFile,obtainLogDirOwner(taskid))));
+			    } catch(FileNotFoundException ex) {
+			      LOG.warn("Index file for the log of " + taskid + " does not exist.");
+			 
+			      //Assume no task reuse is used and files exist on attemptdir
+			      StringBuffer input = newStringBuffer();
+			      input.append(LogFileDetail.LOCATION
+			                     + getAttemptDir(taskid,isCleanup) + "\n");
+			      for(LogName logName : LOGS_TRACKED_BY_INDEX_FILES) {
+			        input.append(logName + ":0 -1\n");
+			      }
+			      fis = newBufferedReader(new StringReader(input.toString()));
+			}
+			
 </pre></code>
 
 - 问题解决：
 类似getAllLogsFileDetails一样，先从log.index获取日志目录获取logdir，
 <pre><code class="java">
 
-	private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
-			TaskLog.LogName type) throws IOException {
-		File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
-		if (f.exists() && f.canRead()) {
-			return true;
-		} else {
-			File indexFile = TaskLog.getIndexFile(taskId, isCleanup);
-			if (!indexFile.exists()) {
-				return false;
+		private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
+				TaskLog.LogName type) throws IOException {
+			File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
+			if (f.exists() && f.canRead()) {
+				return true;
+			} else {
+				File indexFile = TaskLog.getIndexFile(taskId, isCleanup);
+				if (!indexFile.exists()) {
+					return false;
 			}
 
 
