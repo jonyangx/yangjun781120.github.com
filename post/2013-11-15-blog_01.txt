@@ -38,7 +38,7 @@ hljs.initHighlightingOnLoad();
 ###原因：
 - TaskLogServlet.doGet()方法
 
-<pre><code="java">
+<pre><code class="java">
 	 if (filter == null) {
         printTaskLog(response, out, attemptId,start, end, plainText,
                      TaskLog.LogName.STDOUT,isCleanup);
@@ -71,7 +71,7 @@ hljs.initHighlightingOnLoad();
 - TaskLogServlet. printTaskLog方法
 获取日志文件时会从log.index读取。
 
-<pre><code="java">
+<pre><code class="java">
 		InputStreamtaskLogReader =
 	       new TaskLog.Reader(taskId,filter, start, end, isCleanup);
 		TaskLog.Reader
@@ -109,7 +109,8 @@ hljs.initHighlightingOnLoad();
 
 - 问题解决：
 类似getAllLogsFileDetails一样，先从log.index获取日志目录获取logdir，
-<pre><code="java">
+<pre><code class="java">
+
 	private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
 			TaskLog.LogName type) throws IOException {
 		File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
