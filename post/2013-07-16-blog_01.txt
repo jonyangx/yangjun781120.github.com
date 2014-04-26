@@ -1,0 +1,103 @@
+<link rel="stylesheet" title="Default" href="styles/default.css">
+<link rel="alternate stylesheet" title="GitHub" href="styles/github.css">
+<script src="highlight.pack.js"></script>
+<script>
+hljs.tabReplace = '    ';
+hljs.initHighlightingOnLoad();
+</script>
+
+##hive rownumber内置函数使用例子
+
+###Hive-0.11.0中内置row_number函数
+- org.apache.hadoop.hive.ql.exe.FunctionRegistry 
+
+<pre><code class="java">
+    registerHiveUDAFsAsWindowFunctions();
+    registerWindowFunction("row_number", new GenericUDAFRowNumber());  --row_number实现类
+    registerWindowFunction("rank", new GenericUDAFRank());
+    registerWindowFunction("dense_rank", new GenericUDAFDenseRank());
+    registerWindowFunction("percent_rank", new GenericUDAFPercentRank());
+    registerWindowFunction("cume_dist", new GenericUDAFCumeDist());
+    registerWindowFunction("ntile", new GenericUDAFNTile());
+    registerWindowFunction("first_value", new GenericUDAFFirstValue());
+    registerWindowFunction("last_value", new GenericUDAFLastValue());
+    registerWindowFunction(LEAD_FUNC_NAME, new GenericUDAFLead(), false);
+    registerWindowFunction(LAG_FUNC_NAME, new GenericUDAFLag(), false);
+</code></pre>
+
+###使用的DEMO
+- 从test_s表中根据c1字段除重，选取c2最大的值，导入test_c表.
+- DEMO
+
+<pre><code class="sql">
+        hive> 
+        desc test_s;
+        OK
+        col_name data_type      comment
+        c1                      int                     None                
+        c2                      string                  None                
+        Time taken: 1.87 seconds, Fetched: 2 row(s)
+
+        hive> 
+            > select * from test_s;
+        OK
+        c1      c2
+        1       str1
+        2       str2
+        3       str3
+        3       str31
+        3       str33
+        4       str41
+        4       str42
+        Time taken: 0.671 seconds, Fetched: 7 row(s)
+
+        hive> select c1,c2,row_number() over (distribute by c1
+            > sort by c2 desc) rownum
+            >   from test_s ;
+
+        OK
+        c1      c2      rownum
+        1       str1    1
+        2       str2    1
+        3       str33   1
+        3       str31   2
+        3       str3    3
+        4       str42   1
+        4       str41   2
+        Time taken: 17.23 seconds, Fetched: 7 row(s)
+
+        hive> 
+            > 
+            > desc test_c;
+        OK
+        col_name data_type      comment
+        c1                      int                     None                
+        c2                      string                  None                
+        Time taken: 0.118 seconds, Fetched: 2 row(s)
+
+
+        hive> 
+            > insert into table test_c
+            > select c1,c2
+            > from (
+            > select c1,c2,row_number() over (distribute by c1
+            > sort by c2 desc) rownum
+            >   from test_s 
+            > ) aa
+            > where aa.rownum = 1;
+            OK
+            Time taken: 19.609 seconds
+
+        hive> 
+            > 
+            > 
+            > 
+            > select * from test_c;
+            OK
+            c1      c2
+            1       str1
+            2       str2
+            3       str33
+            4       str42
+            Time taken: 0.144 seconds, Fetched: 4 row(s)
+</code></pre>            

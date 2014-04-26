@@ -1,0 +1,171 @@
+<link rel="stylesheet" title="Default" href="styles/default.css">
+<link rel="alternate stylesheet" title="GitHub" href="styles/github.css">
+<script src="highlight.pack.js"></script>
+<script>
+hljs.tabReplace = '    ';
+hljs.initHighlightingOnLoad();
+</script>
+
+
+###现象：
+- 由于多个map task共用一个JVM，所以只输出了一组log文件
+
+	datanode01:/data/hadoop-x.x.x/logs/userlogs$ ls -R
+
+	.:
+
+	attempt_201211220735_0001_m_000000_0  attempt_201211220735_0001_m_000002_0  attempt_201211220735_0001_m_000005_0
+
+	attempt_201211220735_0001_m_000001_0  attempt_201211220735_0001_m_000003_0
+
+	./attempt_201211220735_0001_m_000000_0:
+
+	log.index
+
+	./attempt_201211220735_0001_m_000001_0:
+
+	log.index
+
+	./attempt_201211220735_0001_m_000002_0:
+
+	log.index  stderr  stdout  syslog
+
+ 
+
+- 通过http://xxxxxxxx:50060/tasklog?attemptid= attempt_201211220735_0001_m_000000_0 获取task的日志时，会出现syslog无法获取
+
+
+###原因：
+- TaskLogServlet.doGet()方法
+
+<pre><code="java">
+	 if (filter == null) {
+        printTaskLog(response, out, attemptId,start, end, plainText,
+                     TaskLog.LogName.STDOUT,isCleanup);
+        printTaskLog(response, out, attemptId,start, end, plainText,
+                     TaskLog.LogName.STDERR,isCleanup);
+        if(haveTaskLog(attemptId, isCleanup, TaskLog.LogName.SYSLOG)) {
+          printTaskLog(response, out,attemptId, start, end, plainText,
+              TaskLog.LogName.SYSLOG,isCleanup);
+        }
+        if(haveTaskLog(attemptId, isCleanup, TaskLog.LogName.DEBUGOUT)) {
+          printTaskLog(response, out,attemptId, start, end, plainText,
+                       TaskLog.LogName.DEBUGOUT, isCleanup);
+        }
+        if(haveTaskLog(attemptId, isCleanup, TaskLog.LogName.PROFILE)) {
+          printTaskLog(response, out,attemptId, start, end, plainText,
+                       TaskLog.LogName.PROFILE,isCleanup);
+        }
+      } else {
+        printTaskLog(response, out, attemptId,start, end, plainText, filter,
+                     isCleanup);
+     }
+
+</pre></code>
+
+> - 尝试将filter=SYSLOG参数加上，可以访问到syslog,但去掉就不行。看了代码多了一行
+`haveTaskLog(attemptId, isCleanup,TaskLog.LogName.SYSLOG)`
+判断，跟进代码发现，检查的是原来attempt_201211220735_0001_m_000000_0目录下是否有syslog文件？
+而不是从log.index找location看是否有syslog文件，一个bug出现了！
+
+- TaskLogServlet. printTaskLog方法
+获取日志文件时会从log.index读取。
+
+<pre><code="java">
+		InputStreamtaskLogReader =
+	       new TaskLog.Reader(taskId,filter, start, end, isCleanup);
+		TaskLog.Reader
+		public Reader(TaskAttemptIDtaskid, LogName kind,
+                  long start,long end, boolean isCleanup) throwsIOException {
+	    // find the right log file
+        Map<LogName, LogFileDetail>allFilesDetails =
+        getAllLogsFileDetails(taskid, isCleanup);
+ 
+		static Map<LogName, LogFileDetail> getAllLogsFileDetails(
+		      TaskAttemptID taskid, booleanisCleanup) throws IOException {
+		 
+		    Map<LogName, LogFileDetail>allLogsFileDetails =
+		        newHashMap<LogName, LogFileDetail>();
+		 
+		    File indexFile = getIndexFile(taskid,isCleanup);
+		    BufferedReader fis;
+		    try {
+		      fis = newBufferedReader(new InputStreamReader(
+		        SecureIOUtils.openForRead(indexFile,obtainLogDirOwner(taskid))));
+		    } catch(FileNotFoundException ex) {
+		      LOG.warn("Index file for the log of " + taskid + " does not exist.");
+		 
+		      //Assume no task reuse is used and files exist on attemptdir
+		      StringBuffer input = newStringBuffer();
+		      input.append(LogFileDetail.LOCATION
+		                     + getAttemptDir(taskid,isCleanup) + "\n");
+		      for(LogName logName : LOGS_TRACKED_BY_INDEX_FILES) {
+		        input.append(logName + ":0 -1\n");
+		      }
+		      fis = newBufferedReader(new StringReader(input.toString()));
+		}
+		………………….
+</pre></code>
+
+- 问题解决：
+类似getAllLogsFileDetails一样，先从log.index获取日志目录获取logdir，
+<pre><code="java">
+	private boolean haveTaskLog(TaskAttemptID taskId, boolean isCleanup,
+			TaskLog.LogName type) throws IOException {
+		File f = TaskLog.getTaskLogFile(taskId, isCleanup, type);
+		if (f.exists() && f.canRead()) {
+			return true;
+		} else {
+			File indexFile = TaskLog.getIndexFile(taskId, isCleanup);
+			if (!indexFile.exists()) {
+				return false;
+			}
+
+
+			BufferedReader fis;
+			try {
+				fis = new BufferedReader(new InputStreamReader(
+						SecureIOUtils.openForRead(indexFile,
+								TaskLog.obtainLogDirOwner(taskId))));
+			} catch (FileNotFoundException ex) {
+				LOG.warn("Index file for the log of " + taskId
+						+ " does not exist.");
+
+
+				// Assume no task reuse is used and files exist on attemptdir
+				StringBuffer input = new StringBuffer();
+				input.append(LogFileDetail.LOCATION
+						+ TaskLog.getAttemptDir(taskId, isCleanup) + "\n");
+				for (LogName logName : TaskLog.LOGS_TRACKED_BY_INDEX_FILES) {
+					input.append(logName + ":0 -1\n");
+				}
+				fis = new BufferedReader(new StringReader(input.toString()));
+			}
+
+
+			try {
+				String str = fis.readLine();
+				if (str == null) { // thefile doesn't have anything
+					throw new IOException("Index file for the log of " + taskId
+							+ "is empty.");
+				}
+				String loc = str.substring(str.indexOf(LogFileDetail.LOCATION)
+						+ LogFileDetail.LOCATION.length());
+				File tf = new File(loc, type.toString());
+				return tf.exists() && tf.canRead();
+
+
+			} finally {
+				if (fis != null)
+					fis.close();
+			}
+		}
+
+
+	}
+</pre></code>
+
+> - 从logdir中判断是否有syslog。
+
+- Workaround:
+> - 查询时加入在url上加入filter=SYSLOG就可以看到,不需要修改代码。

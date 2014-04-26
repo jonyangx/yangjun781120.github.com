@@ -1,0 +1,14 @@
+##hadoop集群hdfs磁盘划分
+
+###namenode
+- 做法1:所有盘-1做raid5,拿1块做热备。
+- 做法2:用2块盘sas/sata做raid1,用作安装os+soft+config,其他盘-1 sas/sata 做raid5,用作数据盘,拿一块做热备
+
+###datanode
+- 用2块sata做raid1,用作安装os+soft+config，其他sata盘做raid0，用作数据盘.
+- 通过dfs.data.dir配置多个data dir
+- 通过dfs.datanode.failed.volumes.tolerated配置可容忍坏的data dir数
+
+###总结
+- 这样配置namenode是为了让os/soft/config有冗余，即使其中一块盘坏，依然能正常工作
+- 这样配置datanode是为了让读写磁盘的效率增加，提升iops

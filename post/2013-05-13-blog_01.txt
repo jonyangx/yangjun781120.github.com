@@ -1,0 +1,79 @@
+##jdb远程调试tomcat
+
+###在tomcat打开调试设置jvm参数
+
+	-Xrunjdwp:transport=dt_socket,server=y,address=9090,suspend=y
+
+###在linux命令行jdb连接9090端口
+
+	jdb -attach ip:9090 -sourcepath /softwares/apache-tomcat-7.0.40-src/java
+
+###设置断点
+	
+	stop at org.apache.tomcat.util.IntrospectionUtils:402
+	stop at org.apache.tomcat.util.IntrospectionUtils:406
+	stop at org.apache.tomcat.util.IntrospectionUtils:408
+	stop at org.apache.tomcat.util.IntrospectionUtils:412 
+
+###执行程序
+
+	main[1] run
+	> Set deferred breakpoint org.apache.tomcat.util.IntrospectionUtils:412
+	Set deferred breakpoint org.apache.tomcat.util.IntrospectionUtils:412
+	Set deferred breakpoint org.apache.tomcat.util.IntrospectionUtils:408
+	Unable to set deferred breakpoint org.apache.tomcat.util.IntrospectionUtils:406 
+
+
+	: No code at line 406 in org.apache.tomcat.util.IntrospectionUtils
+
+
+	Stopping due to deferred breakpoint errors.
+	Set deferred breakpoint org.apache.tomcat.util.IntrospectionUtils:402
+
+
+	Breakpoint hit: 
+	Breakpoint hit: "thread=main", 
+
+
+	org.apache.tomcat.util.IntrospectionUtils.setProperty(), line=412 bci=849
+	412                ExceptionUtils.handleThrowable(ie.getCause());
+
+###打印变量
+
+	main[1] locals
+	Method arguments:
+	o = instance of x.x.x.JNDIRealm(id=1156) 
+	name = "connectionPassword"
+	value = "1234"
+	invokeSetProperty = true
+	Local variables:
+	setter = "setConnectionPassword"
+	ie = instance of java.lang.reflect.InvocationTargetException(id=1160)
+	main[1] dump ie.target 
+	 ie.target = {
+	    serialVersionUID: -7034897190745766939
+	    java.lang.Exception.serialVersionUID: -3387516993124229948
+	    java.lang.Throwable.serialVersionUID: -3042686055658047285
+	    java.lang.Throwable.detailMessage: "password decrypt is error!"
+	    java.lang.Throwable.cause: instance of java.lang.RuntimeException(id=1163)
+	    java.lang.Throwable.stackTrace: null
+	}
+
+###打印变量dump信息
+
+	main[1] dump ie.target.cause
+	ie.target.cause = {
+	    serialVersionUID: -7034897190745766939
+	    java.lang.Exception.serialVersionUID: -3387516993124229948
+	    java.lang.Throwable.serialVersionUID: -3042686055658047285
+	    java.lang.Throwable.detailMessage: "get content from cyberark error"
+	    java.lang.Throwable.cause: instance of 
+
+
+	javapasswordsdk.exceptions.PSDKException(id=1165)
+	    java.lang.Throwable.stackTrace: null
+	}
+
+###ctrl+c 退出
+
+	main[1]
